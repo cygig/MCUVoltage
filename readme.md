@@ -1,7 +1,7 @@
 # MCUVoltage
 MCUVoltage measures the voltage supply (Vcc) of Arduino without extra components. Supported board includes Uno, Leonardo, Mega as well as the ATtiny 3224/3226/3227. This library also supports oversampling and averaging. Hardware oversampling for the ATtiny 3224/3226/3227 is also supported.
 
-Testing of ATtiny is done on the [Duck Duck Go](https://duckduckgo.com) by SpenceKonde.
+Testing of ATtiny is done on the [megaTinyCore](#https://github.com/SpenceKonde/megaTinyCore) by SpenceKonde.
 
 While the Vcc is often assumed to be 5V for the Arduino, it is often not the case. Due to factors like diode on the board, long USB cable, inaccurate bus voltage etc, the Vcc can vary, usually between 4.75 to 5.25V.
 
