@@ -294,7 +294,7 @@ In C++ :
 ```
 //We use prefix a number with 0b to denote we are writing in binary
 unsigned int target=0b1100; 
-target = target ! 0b0011;
+target = target | 0b0011;
  
 ```
 
