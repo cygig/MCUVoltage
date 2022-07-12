@@ -1,7 +1,7 @@
 # MCUVoltage
 MCUVoltage measures the voltage supply (Vcc) of Arduino without extra components. Supported board includes Uno, Leonardo, Mega as well as the ATtiny 3224/3226/3227. This library also supports oversampling and averaging. Hardware oversampling for the ATtiny 3224/3226/3227 is also supported.
 
-Testing of ATtiny is done on the [megaTinyCore](https://github.com/SpenceKonde/megaTinyCore) by SpenceKonde.
+Testing of ATtiny3224 is done on the [megaTinyCore](https://github.com/SpenceKonde/megaTinyCore) by SpenceKonde.
 
 While the Vcc is often assumed to be 5V for the Arduino, it is often not the case. Due to factors like diode on the board, long USB cable, inaccurate bus voltage etc, the Vcc can vary, usually between 4.75 to 5.25V.
 
@@ -151,18 +151,16 @@ We first shift ADHL by 8 bits to the left, since those spaces were taken by part
 Then we use bitwise OR to append the the ones from the right shifted result to first eight bits of the result (which should be zeros).
 
 ```
-			00000000 00000011	ADCH
-Right Shift 
-			-----------------
-			00000011 00000000	Right Shifted ADCH
-```
+              00000000 00000011  ADCH
+Right Shift 8 
+              -----------------
+              00000011 00000000  Right Shifted ADCH
 
-					
-```
-			00000011 00000000	Right Shifted ADCH
-OR			00000000 01011001	Reading from ADCL
-			-----------------
-			00000011 01011001	Final result
+
+              00000011 00000000  Right Shifted ADCH
+           OR 00000000 01011001  Reading from ADCL
+              -----------------
+              00000011 01011001  Final result
 ```
 
 If you set ADLAR to `1`, then what you can do is to only read ADCH, skipping ADCL, and get a 8-bit result instead of 10.
@@ -216,6 +214,241 @@ The general operation flow:
 # Public Functions
 
 # Extra: Bitmasking
+We can use bitmasking to select and set certain bits in a register. 
+
+## Basic bitwise operators
+To do so, we use some basic bitwise operators as shown below:
+
+```
+Bitwise OR will return 1, or true, if either operands is 1.
+
+     0   0   1   1 
+OR   0   1   0   1
+    --- --- --- ---
+     0   1   1   1
+```
+
+```
+Bitwise AND will return 1 if both operands are 1.
+
+     0   0   1   1 
+AND  0   1   0   1
+    --- --- --- ---
+     0   0   0   1
+```
+
+```
+Bitwise XOR behaves like OR, but will not return 1 if both operands are 1.
+
+     0   0   1   1 
+XOR  0   1   0   1
+    --- --- --- ---
+     0   1   1   0
+```
+
+```
+Bitwise NOT flips the bit.
+
+     0   1
+NOT 
+    --- --- 
+     1   0
+```
+
+```
+Left Shift n discards n bits on the left and shift the rest by n places. The left over spaces will be filled with 0.
+
+              0 1 1 0   1 0 1 0
+Left Shift 1 
+              -------   -------
+              1 1 0 0   0 1 0 0
+```
+
+```
+right Shift n discards n bits on the right and shift the rest by n places. The left over spaces will be filled with 0.
+
+              0 1 1 0   0 1 0 1
+Right Shift 1 
+              -------   -------
+              0 0 1 1   0 0 1 0
+```
+
+## Setting bits
+
+To set a bit is to make it `1`, or to turn it on, make it true.
+
+`1100` is called a bit string. To manipulate this bitstring, we use another bit string called a bitmask. 
+
+In the bitmask, we write `1` in places we want to set a bit and `0` where we don't. We then bitwise OR the target bit string and the bitmask.
+
+```
+    3 2 1 0 Bit position number
+
+    1 1 0 0 Target bit string
+ OR 0 0 1 1 Bitmask
+    -------
+    1 1 1 1 Result
+```
+
+In C++ :
+```
+//We use prefix a number with 0b to denote we are writing in binary
+unsigned int target=0b1100; 
+target = target ! 0b0011;
+ 
+```
+
+We can write in shorthand form:
+```
+unsigned int target=0b1001;
+target |= 0b0100;
+```
+
+
+In this way, we turn on Bit 1 and 0 from our target by a bitwise OR with a bitmask where Bit 1 and 0 are also `1`. 
+
+Not that we **do not** turn off Bit 3 and 2 by using bitwise OR. A `0` in the bitmask merely means those bits are not operated on.
+
+## Clearing bits
+To clear a bit is to make it `0`, or to turn it off, make it false.
+
+To do so, we need to first bitwise NOT the bitmask, then we use a bitwise AND on the target.
+
+```
+    1 0 0 0 Bitmask
+NOT    
+    -------
+    0 0 0 1 Inverted Bitmask
+    
+    
+    1 0 0 1 Target bit string
+AND 0 0 0 1 Inverted Bitmask
+    -------
+    0 0 0 1
+```
+
+In C++ :
+```
+unsigned int target=0b1001;
+target &= ~(0b1000);
+```
+
+In this case, the `1` in the bitmask selects which bit to clear. `0` will leave the bits untouched.
+
+## Toggling bits
+To toggle a bit is to invert it, if it is `1`, it becomes `0`. If it is `0`, it becomes `1`.
+
+To do so, use the bitwise XOR operator on the target and bitmask.
+
+```
+    3 2 1 0 Bit position number
+    
+    1 0 0 1 Target bit string
+XOR 0 0 1 1 Bitmask
+    -------
+    1 0 1 0 Result
+```
+
+In C++ :
+```
+unsigned int target=0b1001;
+target ^= 0b0011;
+````
+
+In this case, we toggled Bit 1 and 0.
+
+## Reading a single bit
+Other than performing operations on a bit string, we can also read them. If we are only interested in the state of one of the bits, we can perform a bitwise AND between the target bit string and a bitmask and check if the result is zero.
+
+```
+    3 2 1 0 Bit position number
+    
+    1 1 0 1 Target bit string
+XOR 0 1 0 0 Bitmask
+    -------
+    0 1 0 0 Result
+```
+
+In C++ :
+```
+unsigned int target=0b1101;
+
+if ((target & 0b0100) > 0)
+{
+// Do stuff
+}
+```
+
+In this case, `0100` in binary is 4 in decimal. However, all we need to care is that it is greater than zero to know that Bit 2 is turned on.
+
+Consider this:
+
+```
+    3 2 1 0 Bit position number
+    
+    1 0 0 1 Target bit string
+XOR 0 1 0 0 Bitmask
+    -------
+    0 0 0 0 Result
+```
+
+If Bit 2 is turned off, the resulting answer will be `0`.
+
+## Reading multiple bits
+If you want to check multiple bits in a bit string, you can either check them one by one or use the bitwise AND on the target and the bitmask, then compare the results.
+
+In the example below, let's assume we need Bit 2 to be `0` and Bit 0 to be `1`. We check by placing `1` on those position in the bitmask.
+
+```
+    3 2 1 0 Bit position number
+    
+    1 0 1 1 Target bit string
+AND 0 1 0 1 Bitmask
+    -------
+    0 0 0 1
+```
+
+The result is `0001`, and you will only get this result if the bits are right (`X0X1`, where X are the bits does not matter). We can precompute this "correct answer" and compare it to the actual result later on.
+
+To precompute this reference, we place `0` and `1` in the bit position that we expect them to be, and then fill the rest with `0`.
+
+In C++ :
+
+```
+unsigned int target=0b1011;
+
+if ((target & 0b0101) == 0b0001)
+{
+// Do stuff
+}
+```
+
+If the target updates to this:
+
+```
+    3 2 1 0 Bit position number
+    
+    1 1 1 1 Target bit string
+AND 0 1 0 1 Bitmask
+    -------
+    0 1 0 1
+```
+
+Now the result is no longer `0001`, we know target doesn't have the right bits.
+
+If you want to compare the entire bitstring, you can simply use the EQUAL operator:
+
+```
+unsigned int target=0b1011;
+
+if (target == 0b1011)
+{
+// Do stuff
+}
+```
+
+
+
 
 # Extra: Oversampling
 
