@@ -1,44 +1,53 @@
 # MCUVoltage
+
+![](extras/MCUVoltage_Library_Art.jpg)
+
 MCUVoltage measures the voltage supply (Vcc) of Arduino without extra components. Supported board includes Uno, Leonardo, Mega as well as the ATtiny 3224/3226/3227. This library also supports oversampling and averaging. Hardware oversampling for the ATtiny 3224/3226/3227 is also supported.
 
 Testing of ATtiny3224 is done on the [megaTinyCore](https://github.com/SpenceKonde/megaTinyCore) by SpenceKonde.
 
-While the Vcc is often assumed to be 5V for the Arduino, it is often not the case. Due to factors like diode on the board, long USB cable, inaccurate bus voltage etc, the Vcc can vary, usually between 4.75 to 5.25V.
+While the Vcc is often assumed to be 5V for the Arduino, it is often not the case. Due to factors like having diode on the power rail, long USB cable, inaccurate bus voltage etc, Vcc can vary, usually between 4.5 to 5.25V.
 
 Since `analogRead()` uses the Vcc as a reference by default, it may be useful to know the actual Vcc instead of making an assumption that it is 5V. 
 
-This library allows for calibration of the final reading, though sadly, needs to be done on a board by board basis.
+While the out-of-the-box measurement using this library may not be better than the 5V assumption, this library allows for calibration of the Vcc reading, and is able to achieve consistent results across various USB power supplies. Sadly, needs to be done on a board by board basis. An example is included to help with this calibration along with a digital multimeter.
 
 This library is also useful for battery powered projects to read the current battery voltage.
 
-I will try to explain the workings of the ADC as a reference material for myself.
+While oversampling of the ADC is supported, this library calculates the result integrally with a precision of up to 1mV, thus excessive oversampling over 13 bits may not be useful.
+
+I will attempt to explain how the ATmega328P ADC, bitmasking and oversampling works, mainly for my own reference. 
 
 ## Supported microcontroller units (MCUs):
-- ATmega48/88/168/328
-- ATmega48P/88P/168P/328P
+- ATmega48/88/168/328 and their 'P' versions
 - ATmega16u4/32u4
+- ATmega640/1280/1281/2560/2561
 - ATtiny3224/3226/3227
+
+This also means the Arduino Uno, Nano, Leonardo, Micro and Mega are supported.
  
 
 # Contents
 - [Updates](#updates)
 - [How does It Work?](#how-does-it-work)
-- [Notes on ATmega16u4/32u4](#Notes-on-ATmega16u432u4)
+- [Notes on ATmega16u4/32u4](#Notes-on-ATMEGA16U432U46401280128125602561)
 - [Notes on ATtiny3224/3226/3227](#notes-on-attiny332433263327)
 - [Public Functions](#public-functions)
+- [Public Functions (ATTINY3224/3226/3227 EXCLUSIVE)](#public-functionsATTINY322432263227-exclusive))
 - [Extra: Bitmasking](#extra-bitmasking)
 - [Extra: Oversampling](#extra-oversampling)
-- [Extra: ATtiny3224/3226/3227 Hardware Oversampling](#extra-aTtiny322432263227-Hardware-Oversampling)
+
 
 
 # Updates
 - v0.x.x
   - First upload
 
+
 # How Does It Work?
 For the bulk of the explanation, I will be using the Arduino Uno (ATmega328P) as a reference, as that is something most people are familiar with. Similar concepts apply to the other supported MCUs. ATmega48/88/168, ATmega48P/88P/168P and ATmega328 should have identical ADC as ATmega328P. 
 
-Note that the code presented in this section may not be exactly the same as the source code.
+Note that the code presented in this section will not be exactly the same as the source code.
 
 The ATmega328P has a 10-bit (1024 values) Analogue to Digital Converter (ADC) that users can measure one voltage (e.g. pin A0, A1, A2...) against another (Vcc by default). That is done by hooking up a voltage source to one of the analog input pins of the Arduino and call `analogRead()`in the sketch.
 
@@ -70,7 +79,7 @@ You can access a register in the Arduino IDE directly using the name (e.g. `ADMU
 
 The Arduino core and built-in functions (like `analogRead()` ) manipulate these registers under the hood, but since what we are doing here is not implemented by Arduino, we need to do it ourselves.
 
-![](../../../ADC%20Addresses%20Arduino/ADC%20Addresses%20Arduino%20v0.1.0_Overview.png)
+![](extras/Overview.jpg)
 
 The overall flow goes like this:
 1. On ADMUX, select which voltage source is measured against which other one.
@@ -84,7 +93,7 @@ To manipulate (set, clear, toggle) bits in these registers, we use bitmasking. C
 
 ## ADMUX
 
-![](../../../ADC%20Addresses%20Arduino/ADC%20Addresses%20Arduino%20v0.1.0_ADMUX.png)
+![](extras/ADMUX.jpg)
 
 As you can see, each register is one byte or eight bits. Each bits are named and given a number from 7 to 0.
 
@@ -101,7 +110,7 @@ So the code will be:
 `ADMUX |= 0b01001110;`
 
 ## ADCSRA
-![](../../../ADC%20Addresses%20Arduino/ADC%20Addresses%20Arduino%20v0.1.0_ADCSRA.png)
+![](extras/ADCSRA.jpg)
 
 For ADCSRA, we will be focusing on only ADEN (ADC Enable) and ADSC (ADC Start Conversion). Bit 5 to 0 concerns auto triggering, interrupt and prescaling, which we will not be touching and leaving them as default.
 
@@ -124,7 +133,7 @@ You can also use the built-in function to check if ADSC is set like so:
 `while (bit_is_set(ADCSRA, ADSC)){}`
 
 ## ADCL & ADHL
-![](../../../ADC%20Addresses%20Arduino/ADC%20Addresses%20Arduino%20v0.1.0_ADCL%20&%20ADCH.png)
+![](extras/ADCL_&_ADCH.jpg)
 
 Now that the conversion has ended, we can retrieve our results from the ADCL and ADHL registers. You might have noticed that all the registers so far are eight bits wide, and the ATmega328P ADC has a resolution of 10 bits, which is why the result needs to be stored in two separate register.
 
@@ -167,7 +176,7 @@ If you set ADLAR to `1`, then what you can do is to only read ADCH, skipping ADC
 
 ## Calculations
 
-![](../../../ADC%20Addresses%20Arduino/ADC%20Addresses%20Arduino%20v0.1.0_Calculation.png)
+![](extras/Calculation.jpg)
 
 Now that we have the result as an `unsigned int`. Here is now we get Vcc.
 
@@ -178,16 +187,16 @@ So 235/1024 corresponds to bandgap voltage/Vcc. We know that bandgap is supposed
 Side note: While there are debates online if the divisor is 1023 or 1024, page 215 of the datasheet mentions 1024. I would also like to think that each discreet value produces by the ADC represents a **range** of continuous analogue values, thus for a 5V reference, each value represents a range of `5/1024=0.0048828125V`. A value of 1023 means the range starts from `1023/1024*5=4.9951171875V` and ends at `4.9951171875+0.0048828125=5V`.
 
 
-# Notes on ATmega16u4/32u4
+# Notes on ATmega16u4/32u4/640/1280/1281/2560/2561
 ## Differential readings
-ATmega16u4/32u4 supports differential voltage measurement but will not be used in this library.
+These MCUs supports differential voltage measurement but will not be used in this library.
 
 ## Different ADMUX
-While the rest of the operations are identical to ATmega328P, the ADMUX register takes 5 bits (MUX 4 to 0) for the incoming voltage selection. To select the bandgap voltage, set `11110`. There is no unused bit.
+While the rest of the operations are identical to ATmega328P, the ADMUX register takes 6 bits (MUX 5 to 0) for the incoming voltage selection. To select the bandgap voltage, set `11110`. There is no unused bit. Note that Bit-5 is stored inside ADCSRB and the position is different between 16u4/32u4 and 640/1280/1281/2560/2561.
 
 # Notes on ATtiny3224/3226/3227
 ## New features
-The ATtiny3224 has a 12-bit ADC instead of a 10-bit one on ATmega328P. It also has a built-in programmable gain amplifier (PGA) to amplify the incoming voltage. It supports hardware oversampling with calculations mostly automated on the chip. It also supports differential voltage measurement.
+The ATtiny3224/3226/3227 has a 12-bit ADC instead of a 10-bit one on ATmega328P. It also has a built-in programmable gain amplifier (PGA) to amplify the incoming voltage. It supports hardware oversampling with calculations mostly automated on the chip. It also supports differential voltage measurement.
 
 ## Reference voltage
 The bandgap voltage is not available for comparison, only one of the four generated voltage reference (1.024V, 2.056V, 2.500V, 4.096V). This library will still call it bandgap voltage for consistency sake.
@@ -200,256 +209,360 @@ While the general concept to use the ADC remains the same, the name of the regis
 
 The general operation flow:
 
-1. Enable the ADC by setting ENABLE (Bit 0) at ADC0.CTRLA to `1`.
-2. Select the incoming voltage source of 1.024V reference by setting Bit 5 to 0 at ADC0.MUXPOS to `110011` (0x33).
-3. Select the reference voltage source of Vcc by setting REFSEL (Bit 2 to 0) at ADC0.CTRLC to `000`.
-4. Select the mode of a single 12-bit conversion by setting MODE (Bit 6 to 4) at ADC0.COMMAND to `001`.
-5. Start the conversion immediately by setting START (Bit 2 to 0) at ADC0.COMMAND to `001`.
-6. Wait for START (Bit 2 to 0) at AC0.COMMAND to become `000`, indicating the conversion ended.
+1. Set the reference voltage to 1.024V by clearing VREF.CTRLA 
+2. Set AC0.DACREF to 256 so the ADC will use 100% of the 1.024V reference voltage
+3. Enable the ADC by setting ENABLE (Bit 0) at ADC0.CTRLA to `1`.
+4. Select the incoming voltage source of 1.024V reference by setting Bit 5 to 0 at ADC0.MUXPOS to `110011` (0x33).
+5. Clear ADC0.CTRLF to disable freerun and left adjust, and setting the ADC to accumulating only a single sample
+6. Select the reference voltage source of Vcc by setting REFSEL (Bit 2 to 0) at ADC0.CTRLC to `000`.
+7. Select the mode of a single 12-bit conversion by setting MODE (Bit 6 to 4) at ADC0.COMMAND to `001`.
+8. Start the conversion immediately by setting START (Bit 2 to 0) at ADC0.COMMAND to `001`.
+9. Wait for ADC0.STATUS become `0`, indicating the conversion ended.
 7. Read the less significant eight bits of result from ADC0.RESULT0.
 8. Read the more significant four bits of the result from ADC0.RESULT1 and right shift it by eight.
 9. Bitwise OR the two parts of the result to get the final 12-bit result.
 
+## Hardware Oversampling
+This line of MCU supports automated accumulation and scaling of readings. While it can burst read and accumulate different numbers of samples, it can only scale to 16 bits by rightshifting (essentially the decimating part of oversampling) if the maximum possible accumulated result is more than 16 bits.
+
+As such, the ADC is the most automated when oversampling to 16 bits. For any other oversampled bit depth, the decimation part needs to be done the regular software way.
+
+I am also not sure if this really constitutes to "hardware oversampling" and if it is faster than software implementation.
 
 # Public Functions
 
+## MCUVoltage()
+Constructor, this assumes the default bandgap voltage.
+
+## MCUVoltage(*unsigned int* myBandgap)
+Constructor, where you pass your own bandgap voltage, `myBandgap`. Note that `myBandgap` is in millivolts. This is also meant to calibrate the accuracy of the readings. While the bandgap voltage may not be accurate on production, it should remain more or less consistent across different working environments, thus knowing your bandgap voltage will mean future readings should be accurate. An example is provided to calculate this bandgap voltage with the help of a digital multimeter. This is known as the reference voltage for ATtiny3224/3226/3227.
+
+## *unsigned long* readmV()
+Returns Vcc in millivolts. This function only read the Vcc once, and is not recommended as we usually discard the first reading, however this can be useful if you want to read multiple times manually. This is faster than `read()` since there are no floating point operation. 
+
+## *unsigned long* readmV(*byte* avgTimes)
+Returns Vcc in millivolts. Read the Vcc once, discard that reading, then go on and read `avgTimes` more, and returns the averaged the results.
+
+## *float* read()
+Similar to `readmV()` but returns the result in volts rather than millivolts, as a floating point, thus also slower.
+
+## *float* read(*byte* avgTimes)
+Similar to `readmV(byte avgTimes)` but returns the result in volts rather than millivolts, as a floating point, thus also slower.
+
+## *unsigned long* getLastADCReading()
+Get the last ADC reading of the bandgap voltage as input against the Vcc as reference.
+
+## *unsigned int* getBandgap()
+Get the current bandgap voltage in use. Returned value is in millivolts.
+
+## *byte* getBitDepth()
+Get the native bitdepth of the ADC. It should either 12 (bits) for ATtiny3224/3226/3227 and 10 (bits) for other supported MCU.
+
+## *unsigned int* getResolution()
+Get the resolution of the ADC. 10-bit ADC should return 1024, 12-bit one should return
+4096. This is also the precision of the ADC.
+
+## *byte* getMode()
+Get the operation mode. Mode is only updated after calling `read()`, `readmV()` `read_OS()`, `readmV_OS()`, `read_HWOS()`, `readmV_HWOS()`.
+
+| Value | Mode Definition       |
+|-------|-----------------------|
+| 0     | REGULAR_READING       |
+| 1     | SOFTWARE_OVERSAMPLING |
+| 2     | HARDWARE_OVERSAMPLING |
+
+## *bool* setBandgap(*unsigned int* myBandgap)
+Set the bandgap voltage use, in millivolts. Returns `true` on success, else returns `false` and the default bandgap value will be used. The operation will be deemed a failure if `0` is being passed, and this can be used to set the bandgap voltage back to default. 
+
+## *void* ADCSetup()
+Setup the ADC for a reading. Always call this before `readADC()`. Used internally for the other functions that read Vcc.
+
+## *unsigned int* readADC()
+Read the ADC where the bandgap voltage is the input and the Vcc is the reference once. Call `ADCSetup()` first. Used internally for the other functions that read Vcc.
+
+## *unsigned long* readmV_OS(*byte* targetBitDepth)
+Returns Vcc in millivolts after software oversampling to `targetBitDepth`. This function only reads the exact number of times needed to oversample, and is not recommended as we usually discard the first reading, however this can be useful if you want to read multiple times manually. This is faster than `read_OS(byte targetBitDepth)` since there are no floating point operation. 
+
+While there is no check on how many bits are being oversampled, oversampling to more than 13 bits usually has diminishing returns and takes a long time, refer to `readmV_OS(byte targetBitDepth, byte avgTimes)`for more information.
+
+`targetBitDepth` needs to be higher than the ADC's native bitdepth (see `getBitDepth()`).
+
+## *unsigned long* readmV_OS(*byte* targetBitDepth, *byte* avgTimes)
+Returns Vcc in millivolts after software oversampling to `targetBitDepth`. Read the Vcc once, discard that first reading. Go on and read enough times more to oversample. Then repeat oversampled readings for `avgTimes` more, and returns the averaged the results.
+
+While there is no check on how many bits are being oversampled, oversampling to more than 13 bits usually has diminishing returns and takes a long time. 
+
+Two `unsigned long` variables are used, one to store the oversampling sum, and one to store the averaging sum, thus if `targetBitRate` or `avgTimes` is too large, those variables will overflow. The number of averaging time is also limited by the `byte` datatype used and the number of results to sample is limited by `unsigned int` datatype used.
+
+`targetBitDepth` needs to be higher than the ADC's native bitdepth (see `getBitDepth()`). `avgTimes` needs to be between 1 and 255, inclusive.
+
+Check out [Extra: Oversampling](#extra-oversampling) to see how the calculation works.
+
+| Data Type    | Bytes | Range             |
+|--------------|-------|-------------------|
+| byte         | 1     | 0 to 255          |
+| unsigned int | 2     | 0 to 65,535       |
+| unsigned long| 4     | 0 to 4,294,967,295|
+
+Keep the oversampling bitdepth and averaging times within these values in the table below to prevent overflowing.
+
+ATtiny3224/3226/3227:
+
+| Native Bit Depth | Native Resolution |
+|------------------|-------------------|
+| 12               | 4,096             |
+
+
+| Oversampled Bit Depth | Extra Bits | Samples Needed | Max Sum of Samples | Max Averaging Allowed | Max Sum of Averaging |
+|--|-|------|----------|---|-------------|
+|13|1|4     |16,384    |255|4,177,920    |
+|14|2|16    |65,536    |255|16,711,680   |
+|15|3|64    |262,144   |255|66,846,720   |
+|16|4|256   |1,048,576 |255|267,386,880  |
+|17|5|1,024 |4,194,304 |255|1,069,547,520|
+|18|6|4,096 |16,777,216|255|4,278,190,080|
+|19|7|16,384|67,108,864|63 |4,227,858,432|
+
+Other supported MCU (ATmega328P/32u4/2560 etc):
+
+| Native Bit Depth | Native Resolution |
+|------------------|-------------------|
+| 10               | 1,024             |
+
+
+| Oversampled Bit Depth | Extra Bits | Samples Needed | Max Sum of Samples | Max Averaging Allowed | Max Sum of Averaging |
+|--|--|------|----------|---|-------------|
+|11|1 |4     |4,096     |255|1,044,480    |
+|12|2 |16    |16,384    |255|4,177,920    |
+|13|3 |64    |65,536    |255|16,711,680   |
+|14|4 |256   |262,144   |255|66,846,720   |
+|15|5 |1,024 |1,048,576 |255|267,386,880  |
+|16|6 |4,096 |4,194,304 |255|1,069,547,520|
+|17|7 |16,384|16,777,216|255|4,278,190,080|
+
+
+## *float* read_OS(*byte* targetBitDepth)
+Similar to `readmV_OS(byte targetBitDepth)` but returns the result in volts rather than millivolts, as a floating point, thus also slower.
+
+
+## *float* read_OS(*byte* targetBitDepth, *byte* avgTimes)
+Similar to `readmV_OS(byte targetBitDepth, byte avgTimes)` but returns the result in volts rather than millivolts, as a floating point, thus also slower.
+
+## *byte* getBitDepth_OS()
+Get the software oversampled bitdepth. `ADCSetup_OS(byte targetBitDepth)` or another function that calls `ADCSetup_OS(byte targetBitDepth)` needs to be called first before the relevant properties are updated.
+
+## *unsigned long* getResolution_OS()
+Get the software oversampled resolution. `ADCSetup_OS(byte targetBitDepth)` or another function that calls `ADCSetup_OS(byte targetBitDepth)` needs to be called first before the relevant properties are updated.
+
+## *byte* getExtraBits_OS()
+Get how many bits are being software oversampled. `ADCSetup_OS(byte targetBitDepth)` or another function that calls `ADCSetup_OS(byte targetBitDepth)` needs to be called first before the relevant properties are updated.
+
+## *unsigned int* getSampleCount_OS()
+Get how many times the ADC need to be read for software oversampling. `ADCSetup_OS(byte targetBitDepth)` or another function that calls `ADCSetup_OS(byte targetBitDepth)` needs to be called first before the relevant properties are updated.
+
+## *void* ADCSetup_OS(*byte* targetBitDepth)
+Setup the ADC for a software oversampled reading. Always call this before `readADC_OS()`. Used internally for the other functions that read software oversampled Vcc.
+
+## *unsigned long* readADC_OS()
+Read the ADC with software oversampling where the bandgap voltage is the input and the Vcc is the reference once. Call `ADCSetup_OS()` first. Used internally for the other functions that read software oversampled Vcc.
+
+# Public Functions (ATtiny3224/3226/3227 Exclusive)
+
+## *unsigned long* readmV_HWOS(*byte* targetBitDepth)
+Returns Vcc in millivolts after hardware oversampling to `targetBitDepth`. This function only reads the exact number of times needed to oversample, and is not recommended as we usually discard the first reading, however this can be useful if you want to read multiple times manually. This is faster than `read_HWOS(byte targetBitDepth)` since there are no floating point operation.
+
+`targetBitDepth` needs to be between 13 and 17, inclusive. Else it will default to 16 since that is the only scaling option provided by the MCU.
+
+## *unsigned long* readmV_HWOS(*byte* targetBitDepth, *byte* avgTimes)
+Returns Vcc in millivolts after hardware oversampling to `targetBitDepth`. Read the Vcc once, discard that first reading. Go on and read enough times more to oversample using the burst accumulation function of the MCU. Then repeat oversampled readings for `avgTimes` more, and returns the averaged the results.
+
+`targetBitDepth` needs to be between 13 and 17, inclusive. Else it will default to 16 since that is the only scaling option provided by the MCU. `avgTimes` needs to be between 1 and 255, inclusive.
+
+## *float* read_HWOS(*byte* targetBitDepth)
+Similar to readmV_HWOS(byte targetBitDepth) but returns the result in volts rather than millivolts, as a floating point, thus also slower.
+
+## *float* read_HWOS(*byte* targetBitDepth, *byte* avgTimes)
+Similar to `readmV_HWOS(byte targetBitDepth, byte avgTimes)` but returns the result in volts rather than millivolts, as a floating point, thus also slower.
+
+## *byte* getBitDepth_HWOS()
+Get the hardware oversampled bitdepth. `ADCSetup_HWOS(byte targetBitDepth)` or another function that calls `ADCSetup_HWOS(byte targetBitDepth)` needs to be called first before the relevant properties are updated.
+
+## *unsigned long* getResolution_HWOS()
+Get the hardware oversampled resolution.`ADCSetup_HWOS(byte targetBitDepth)` or another function that calls `ADCSetup_HWOS(byte targetBitDepth)` needs to be called first before the relevant properties are updated.
+
+## *byte* getExtraBits_HWOS()
+Get how many bits are being software oversampled. `ADCSetup_HWOS(byte targetBitDepth)` or another function that calls `ADCSetup_HWOS(byte targetBitDepth)` needs to be called first before the relevant properties are updated.
+
+## *void* ADCSetup_HWOS(*byte* targetBitDepth)
+Setup the ADC for a hardware oversampled reading. Always call this before readADC_HWOS(). Used internally for the other functions that read hardware oversampled Vcc.
+
+## *unsigned int*  readADC_HWOS()
+Read the ADC with hardware oversampling where the bandgap voltage is the input and the Vcc is the reference once. Call ADCSetup_HWOS() first. Used internally for the other functions that read hardware oversampled Vcc.
+
+
 # Extra: Bitmasking
-We can use bitmasking to select and set certain bits in a register. 
+
+Imagine our data as a string of bits, which we call bitstring. This can be data from registers or other parts of the program.
+
+![](extras/Bitmasking.jpg)
+
+We can use bitmasking to manipulate certain bits in this bitstring. A bitmask acts as a selector to our data, where a `1` denotes that the corresponding data-bit needs to be operated on and a `0` denotes the bit be left alone.
 
 ## Basic bitwise operators
 To do so, we use some basic bitwise operators as shown below:
 
-```
-Bitwise OR will return 1, or true, if either operands is 1.
+![](extras/Logical_Operators.jpg)
 
-     0   0   1   1 
-OR   0   1   0   1
-    --- --- --- ---
-     0   1   1   1
-```
-
-```
-Bitwise AND will return 1 if both operands are 1.
-
-     0   0   1   1 
-AND  0   1   0   1
-    --- --- --- ---
-     0   0   0   1
-```
-
-```
-Bitwise XOR behaves like OR, but will not return 1 if both operands are 1.
-
-     0   0   1   1 
-XOR  0   1   0   1
-    --- --- --- ---
-     0   1   1   0
-```
-
-```
-Bitwise NOT flips the bit.
-
-     0   1
-NOT 
-    --- --- 
-     1   0
-```
-
-```
-Left Shift n discards n bits on the left and shift the rest by n places. The left over spaces will be filled with 0.
-
-              0 1 1 0   1 0 1 0
-Left Shift 1 
-              -------   -------
-              1 1 0 0   0 1 0 0
-```
-
-```
-right Shift n discards n bits on the right and shift the rest by n places. The left over spaces will be filled with 0.
-
-              0 1 1 0   0 1 0 1
-Right Shift 1 
-              -------   -------
-              0 0 1 1   0 0 1 0
-```
 
 ## Setting bits
 
-To set a bit is to make it `1`, or to turn it on, make it true.
+![](extras/Setting_Bits.jpg)
 
-`1100` is called a bit string. To manipulate this bitstring, we use another bit string called a bitmask. 
-
-In the bitmask, we write `1` in places we want to set a bit and `0` where we don't. We then bitwise OR the target bit string and the bitmask.
-
-```
-    3 2 1 0 Bit position number
-
-    1 1 0 0 Target bit string
- OR 0 0 1 1 Bitmask
-    -------
-    1 1 1 1 Result
-```
+To set a bit is to turn it `1` regardless of the original content, we use the bitwise OR operator between the data and the bitmask.
 
 In C++ :
 ```
 //We use prefix a number with 0b to denote we are writing in binary
-unsigned int target=0b1100; 
-target = target | 0b0011;
+// Instead of unsigned int, we can use uint8_t as well
+unsigned int data = 0b01010001; 
+data = data | 0b00100001;
  
 ```
 
 We can write in shorthand form:
 ```
-unsigned int target=0b1001;
-target |= 0b0100;
+unsigned int data = 0b01010001;
+data |= 0b00100001;
 ```
 
-
-In this way, we turn on Bit 1 and 0 from our target by a bitwise OR with a bitmask where Bit 1 and 0 are also `1`. 
-
-Not that we **do not** turn off Bit 3 and 2 by using bitwise OR. A `0` in the bitmask merely means those bits are not operated on.
 
 ## Clearing bits
-To clear a bit is to make it `0`, or to turn it off, make it false.
+![](extras/Clearing_Bits.jpg)
 
-To do so, we need to first bitwise NOT the bitmask, then we use a bitwise AND on the target.
-
-```
-    1 0 0 0 Bitmask
-NOT    
-    -------
-    0 0 0 1 Inverted Bitmask
-    
-    
-    1 0 0 1 Target bit string
-AND 0 0 0 1 Inverted Bitmask
-    -------
-    0 0 0 1
-```
+To clear a bit is to turn it `0` regardless of the original content. This is a little more complicated. There are a few ways to do it, then one shown here is to NOT the bitmask to get an inverted bitmask. Then AND the inverted bitmask with the data.
 
 In C++ :
 ```
-unsigned int target=0b1001;
-target &= ~(0b1000);
+unsigned int data = 0b01010001;
+target &= ~(0b01000010);
 ```
 
-In this case, the `1` in the bitmask selects which bit to clear. `0` will leave the bits untouched.
+We can also manually NOT the bitmask to save some computing time:
+
+```
+unsigned int data = 0b01010001;
+target &= 0b10111101;
+```
 
 ## Toggling bits
-To toggle a bit is to invert it, if it is `1`, it becomes `0`. If it is `0`, it becomes `1`.
 
-To do so, use the bitwise XOR operator on the target and bitmask.
+![](extras/Toggling_Bits.jpg)
 
-```
-    3 2 1 0 Bit position number
-    
-    1 0 0 1 Target bit string
-XOR 0 0 1 1 Bitmask
-    -------
-    1 0 1 0 Result
-```
+To toggle a bit is to invert it. A `1` will become a `0`, while a `0` becomes A `1`. We use bitwise XOR between data and the bitmask.
 
 In C++ :
 ```
-unsigned int target=0b1001;
-target ^= 0b0011;
+unsigned int data = 0b01010001;
+data ^= 0b00100001;
 ````
 
-In this case, we toggled Bit 1 and 0.
 
-## Reading a single bit
-Other than performing operations on a bit string, we can also read them. If we are only interested in the state of one of the bits, we can perform a bitwise AND between the target bit string and a bitmask and check if the result is zero.
+## Reading a bit
 
-```
-    3 2 1 0 Bit position number
-    
-    1 1 0 1 Target bit string
-XOR 0 1 0 0 Bitmask
-    -------
-    0 1 0 0 Result
-```
+![](extras/Reading_A_Bit.jpg)
+
+To read one single bit, we use bitwise AND between data and bitmask. Note that in this case, there can be only one `1` inside the bitmask. Using this method, we can only check one bit at a time.
+
+If the result is more than zero, then the selected data-bit is `1`, else it is `0`.
 
 In C++ :
 ```
-unsigned int target=0b1101;
+unsigned int data = 0b01010001;
 
-if ((target & 0b0100) > 0)
+if ((data & 0b00010000) > 0)
 {
-// Do stuff
+// Do stuff when Bit 4 is 1
 }
 ```
 
-In this case, `0100` in binary is 4 in decimal. However, all we need to care is that it is greater than zero to know that Bit 2 is turned on.
-
-Consider this:
+We can also check if Bit 3 is `0`:
 
 ```
-    3 2 1 0 Bit position number
-    
-    1 0 0 1 Target bit string
-XOR 0 1 0 0 Bitmask
-    -------
-    0 0 0 0 Result
-```
-
-If Bit 2 is turned off, the resulting answer will be `0`.
-
-## Reading multiple bits
-If you want to check multiple bits in a bit string, you can either check them one by one or use the bitwise AND on the target and the bitmask, then compare the results.
-
-In the example below, let's assume we need Bit 2 to be `0` and Bit 0 to be `1`. We check by placing `1` on those position in the bitmask.
-
-```
-    3 2 1 0 Bit position number
-    
-    1 0 1 1 Target bit string
-AND 0 1 0 1 Bitmask
-    -------
-    0 0 0 1
-```
-
-The result is `0001`, and you will only get this result if the bits are right (`X0X1`, where X are the bits does not matter). We can precompute this "correct answer" and compare it to the actual result later on.
-
-To precompute this reference, we place `0` and `1` in the bit position that we expect them to be, and then fill the rest with `0`.
-
-In C++ :
-
-```
-unsigned int target=0b1011;
-
-if ((target & 0b0101) == 0b0001)
+if ((data & 0b00001000) == 0)
 {
-// Do stuff
+// Do stuff when Bit 3 is 0
+}
+````
+
+
+## Reading many bits
+![](extras/Reading_Many_Bits.jpg)
+
+The previous method can be used repeatedly to check each and every bit. However, we can also check if a group of multiple bits are in the correct order (correct `1`s and `0`s).
+
+To do this:
+1. Make a bitmask selecting those bits we want to check
+2. Form an expected outcome
+3. Bitwise AND the data and the bitmask
+4. Compare the result to see if it matches the expected outcome
+
+If the expected outcome matches the result, then the selected data-bits are in the correct order.
+
+To form the expected outcome:
+1. Write down the expected bits at the correct position
+2. Pad the rest with `0`s
+
+In C++:
+
+```
+unsigned int data = 0b01010001;
+unsigned int expected = 0b00010001;
+
+if ((data & 0b00011001) == expected)
+{
+// Do stuff when Bit 4 is 1, Bit 3 is 0 and Bit 0 is 1
 }
 ```
 
-If the target updates to this:
+We can observe from the graphic and example code that once Bit 4, 3 and 0 changes, the expected outcome will no longer be `00010001`.
+
+If we want to compare the entire bitstring, we can simply use the EQUAL operator:
 
 ```
-    3 2 1 0 Bit position number
-    
-    1 1 1 1 Target bit string
-AND 0 1 0 1 Bitmask
-    -------
-    0 1 0 1
-```
+unsigned int data = 0b01010001;
 
-Now the result is no longer `0001`, we know target doesn't have the right bits.
-
-If you want to compare the entire bitstring, you can simply use the EQUAL operator:
-
-```
-unsigned int target=0b1011;
-
-if (target == 0b1011)
+if ( data == 0b01010001)
 {
-// Do stuff
+// Do stuff when data is in the correct order
 }
 ```
-
-
 
 
 # Extra: Oversampling
 
-# Extra: ATtiny3224/3226/3227 Hardware Oversampling
+In the case of the Arduino Uno (ATmega328P), readings by the ADC will be of 10-bit precision, ranging from 0-1023. Assuming we are measuring against 5V, this result in each value representing around a range of 0.00488V. Any measurement falling within this precision will be rounded off. To oversample is to increase this precision by taking more readings.
+
+![](extras/Oversampling.jpg)
+
+To get *n* more bits of precision, we need to take 4^*n* samples, sum them up and rightshift the result by *n*, effective diving it by 2^*n*. You can see an example given in the graphic above.
+
+Let's take an even simpler example and walk through step by step. 
+
+Assume we are feeding 3.8V into an ADC channel in the Arduino, to be compared against its Vcc of exactly 5.0V. We measure 778 using `analogRead()` and we want to increase the precision.
+
+778 will correspond to a range of 778  / 1024 * 5.0 = 3.799V. More accurately, 3.799V to 3.799 + 0.00488V.
+
+We oversample from 10 bit to 12 bit, oversampling by 12 - 10 = 2 bits. We need to do 4^2 = 16 readings. Apparently, some noise is needed for oversampling to work, and assume we get the following 16 readings:
+
+```
+778 777 779 780 778 781 776 777
+780 776 777 780 778 778 776 781
+```
+
+We add all 16 values up to get 12,452, or `0011000010100100`. We rightshift by 2 to get `0000110000101001` or we can divide 12,452 by 2^2 = 4, which gives 3,113.
+
+3,113 will be the oversampled 12-bit reading. A 12-bit reading ranges from 0-4095, and on a 5V reference, each value represents around a range of 0.00122V.
+
+3,113 will correspond to a range of 3113 / 4096 * 5.0 = 3.800V, more accurately, 3.800V to 3.800V+0.00122V, which is of a higher precision than before. 
+
+Do note that oversampling does not increase the accuracy of the ADC. 
