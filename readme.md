@@ -33,7 +33,7 @@ This also means the Arduino Uno, Nano, Leonardo, Micro and Mega are supported.
 - [Notes on ATmega16u4/32u4](#Notes-on-ATMEGA16U432U46401280128125602561)
 - [Notes on ATtiny3224/3226/3227](#notes-on-attiny332433263327)
 - [Public Functions](#public-functions)
-- [Public Functions (ATTINY3224/3226/3227 EXCLUSIVE)](#public-functionsATTINY322432263227-exclusive))
+- [Public Functions (ATTINY3224/3226/3227 Exclusive)](#public-functions-ATTINY322432263227-exclusive)
 - [Extra: Bitmasking](#extra-bitmasking)
 - [Extra: Oversampling](#extra-oversampling)
 
