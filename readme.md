@@ -50,7 +50,7 @@ See also [byte getDevice()](#byte-getdevice) on how boards and MCUs are detected
 
 
 # Updates
-- v0.x.x
+- v0.4.4
   - First upload
 
 
