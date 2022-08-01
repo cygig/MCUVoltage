@@ -296,15 +296,15 @@ Get the operation mode. Mode is only updated after calling
 ## *byte* getDevice()
 Get the device the library is running on.
 
-| Value | Device Definition | Device Description                         | MCU      |
-|-------|-------------------|--------------------------------------------|----------|
-| 0     | UNKNOWN_DEVICE    | Unknown                                    | Unknown  |
+| Value | Device Definition | Device Description                         | MCU                  |
+|-------|-------------------|--------------------------------------------|----------------------|
+| 0     | UNKNOWN_DEVICE    | Unknown                                    | Unknown              |
 | 1     | A_UNO             | Arduino Uno and its compatible boards      | ATmega328/328P/328PB |
-| 2     | A_LEO             | Arduino Leonardo and its compatible boards | ATmega32U4 |
-| 3     | A_MEGA            | Arduiono Mega and its compatible boards    | ATmega2560 |
+| 2     | A_LEO             | Arduino Leonardo and its compatible boards | ATmega32U4           |
+| 3     | A_MEGA            | Arduiono Mega and its compatible boards    | ATmega2560           |
 | 4     | ATTINY322X        | Any board with ATtiny3224/3226/3227        | ATtiny3224/3226/3227 |
 
-Note that unknown device can include less common MCU:
+Note that unknown devices can include less common MCUs:
 - ATmega16u4, where the library will detect and treat it similarly to ATmega32u4.
 - Atmega640/1280/1281/2561, where the library will detect and treat it similarly to ATmega2560.
 
