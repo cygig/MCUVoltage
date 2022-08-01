@@ -19,13 +19,23 @@ While oversampling of the ADC is supported, this library calculates the result i
 I will attempt to explain how the ATmega328P ADC, bitmasking and oversampling works, mainly for my own reference. 
 
 ## Supported microcontroller units (MCUs):
-- ATmega48/88/168/328 and their 'P' versions
+- ATmega48/88/168/328 and their 'P', 'A', 'PA', 'PB' versions
 - ATmega16u4/32u4
 - ATmega640/1280/1281/2560/2561
 - ATtiny3224/3226/3227
 
 This also means the Arduino Uno, Nano, Leonardo, Micro and Mega are supported.
+
+Since the ATmega48/88/168/328 has so many variants, I did not manage to check the datasheet on all of them, and made the assumption after looking through a few that they should be mostly similar.
+
+The following boards are tested personally by me:
+- Arduino Uno Compatible Board
+- Arduino Pro Micro Compatible Board
+- Arduino Leonardo Compatible Board
+- Arduino Mega Pro Compatible Board
+- My own ATtiny3224 Development Board
  
+See also [byte getDevice()](#byte-getdevice) on how boards and MCUs are detected.
 
 # Contents
 - [Updates](#updates)
@@ -263,13 +273,42 @@ Get the resolution of the ADC. 10-bit ADC should return 1024, 12-bit one should 
 4096. This is also the precision of the ADC.
 
 ## *byte* getMode()
-Get the operation mode. Mode is only updated after calling `read()`, `readmV()` `read_OS()`, `readmV_OS()`, `read_HWOS()`, `readmV_HWOS()`.
+Get the operation mode. Mode is only updated after calling 
+- `read()`
+- `read(byte avgTimes)`
+- `readmV()`
+- `readmV(byte avgTimes)`
+- `read_OS(byte targetBitDepth)`
+- `read_OS(byte targetBitDepth, byte avgTimes)`
+- `readmV_OS(byte targetBitDepth)`
+- `readmV_OS(byte targetBitDepth, byte avgTimes)`
+- `read_HWOS(byte targetBitDepth)`
+- `read_HWOS(byte targetBitDepth, byte avgTimes)`
+- `readmV_HWOS(byte targetBitDepth)`
+- `readmV_HWOS(byte targetBitDepth, byte avgTimes)`
 
 | Value | Mode Definition       |
 |-------|-----------------------|
 | 0     | REGULAR_READING       |
 | 1     | SOFTWARE_OVERSAMPLING |
 | 2     | HARDWARE_OVERSAMPLING |
+
+## *byte* getDevice()
+Get the device the library is running on.
+
+| Value | Device Definition | Device Description                         | MCU      |
+|-------|-------------------|--------------------------------------------|----------|
+| 0     | UNKNOWN_DEVICE    | Unknown                                    | Unknown  |
+| 1     | A_UNO             | Arduino Uno and its compatible boards      | ATmega328/328P/328PB |
+| 2     | A_LEO             | Arduino Leonardo and its compatible boards | ATmega32U4 |
+| 3     | A_MEGA            | Arduiono Mega and its compatible boards    | ATmega2560 |
+| 4     | ATTINY322X        | Any board with ATtiny3224/3226/3227        | ATtiny3224/3226/3227 |
+
+Note that unknown device can include less common MCU:
+- ATmega16u4, where the library will detect and treat it similarly to ATmega32u4.
+- Atmega640/1280/1281/2561, where the library will detect and treat it similarly to ATmega2560.
+
+Any other unknown boards will be treated as a ATmega328P during operations.
 
 ## *bool* setBandgap(*unsigned int* myBandgap)
 Set the bandgap voltage use, in millivolts. Returns `true` on success, else returns `false` and the default bandgap value will be used. The operation will be deemed a failure if `0` is being passed, and this can be used to set the bandgap voltage back to default. 
