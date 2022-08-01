@@ -10,7 +10,7 @@ While the Vcc is often assumed to be 5V for the Arduino, it is often not the cas
 
 Since `analogRead()` uses the Vcc as a reference by default, it may be useful to know the actual Vcc instead of making an assumption that it is 5V. 
 
-While the out-of-the-box measurement using this library may not be better than the 5V assumption, this library allows for calibration of the Vcc reading, and is able to achieve consistent results across various USB power supplies. Sadly, needs to be done on a board by board basis. An example is included to help with this calibration along with a digital multimeter.
+While the out-of-the-box measurement using this library may not be better than the 5V assumption, this library allows for calibration of the Vcc reading, and is able to achieve consistent results across various USB power supplies. Sadly, needs to be done on a board by board basis. An example, `Calibrate_Bandgap` is included to help with this calibration along with a digital multimeter.
 
 This library is also useful for battery powered projects to read the current battery voltage.
 
